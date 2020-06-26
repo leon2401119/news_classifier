@@ -64,9 +64,9 @@ val_y = ohe.transform(val_y).toarray()
 ## 使用Tokenizer對詞組進行編碼
 ## 當我們建立一個Tokenizer對象後，使用該對象的fit_on_texts()函数，以空格去便是每個詞,
 ## 可以將輸入的文本中的每個詞編號，編號是根據詞頻的，詞頻越大，編號越小。
-max_words = 50000
-max_len = 100
-tok = Tokenizer(num_words=max_words, filters='，？：“”《》（ ）！', lower=False, split=u' ')  ## 使用的最大詞語數为20000
+max_words = 100000
+max_len = 20
+tok = Tokenizer(num_words=max_words, filters=u'，？：“”《》（ ）！', lower=False, split=u' ')  ## 使用的最大詞語數为20000
 tok.fit_on_texts(train_df.seg_word)
 ## 使用word_index屬性可以看到每個詞對應的編碼
 ## 使用word_counts屬性可以看到每個詞對應的頻數
@@ -96,10 +96,11 @@ test_seq_mat = sequence.pad_sequences(test_seq, maxlen=max_len)
 ## LSTM模型
 inputs = Input(name='inputs', shape=[max_len])
 ## Embedding(詞彙表大小,batch大小,每個新聞的詞長)
-layer = Embedding(max_words+1, 32, input_length=max_len)(inputs)
-layer = Bidirectional(LSTM(32))(layer)
-layer = Dense(32, activation="relu", name="FC1")(layer)
-layer = Dropout(0.5)(layer)
+layer = Embedding(max_words+1, 100, input_length=max_len)(inputs)
+layer = Bidirectional(LSTM(256))(layer)
+layer = Dense(128, activation="sigmoid", name="FC1")(layer)
+# layer = Dropout(0.1)(layer)
+layer = Dense(64, activation='sigmoid', name='FC2')(layer)
 layer = Dense(10, activation="softmax", name="FC3")(layer)
 model = Model(inputs=inputs, outputs=layer)
 model.compile(loss="categorical_crossentropy", optimizer=RMSprop(), metrics=["accuracy"])
