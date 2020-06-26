@@ -8,7 +8,7 @@ from sklearn import metrics
 from sklearn.utils import shuffle
 from sklearn.preprocessing import LabelEncoder,OneHotEncoder
 from keras.models import Model
-from keras.layers import LSTM, Activation, Dense, Dropout, Input, Embedding, Bidirectional
+from keras.layers import LSTM, Activation, Dense, Dropout, Input, Embedding, Bidirectional, BatchNormalization
 from keras.optimizers import RMSprop, Adam
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing import sequence
@@ -40,8 +40,8 @@ news_all = pd.read_csv('./train_jieba.csv', index_col=None)
 news_all = shuffle(news_all)
 test_all = pd.read_csv('./test_jieba.csv')
 
-train_rate = 0.6
-val_rate = 0.4
+train_rate = 0.9
+val_rate = 0.1
 # test_rate =0.2
 train_df = news_all.iloc[:int(train_rate*len(news_all))]
 val_df = news_all.iloc[int(train_rate*len(news_all)):int((train_rate+val_rate)*len(news_all))]
@@ -64,7 +64,7 @@ val_y = ohe.transform(val_y).toarray()
 ## 使用Tokenizer對詞組進行編碼
 ## 當我們建立一個Tokenizer對象後，使用該對象的fit_on_texts()函数，以空格去便是每個詞,
 ## 可以將輸入的文本中的每個詞編號，編號是根據詞頻的，詞頻越大，編號越小。
-max_words = 100000
+max_words = 1000000
 max_len = 20
 tok = Tokenizer(num_words=max_words, filters=u'，？：“”《》（ ）！', lower=False, split=u' ')  ## 使用的最大詞語數为20000
 tok.fit_on_texts(train_df.seg_word)
@@ -96,15 +96,20 @@ test_seq_mat = sequence.pad_sequences(test_seq, maxlen=max_len)
 ## LSTM模型
 inputs = Input(name='inputs', shape=[max_len])
 ## Embedding(詞彙表大小,batch大小,每個新聞的詞長)
-layer = Embedding(max_words+1, 100, input_length=max_len)(inputs)
-layer = Bidirectional(LSTM(256))(layer)
+layer = Embedding(max_words+1, 500, input_length=max_len)(inputs)
+layer = Dropout(0.5)(layer)
+layer = BatchNormalization()(layer)
+layer = Bidirectional(LSTM(192))(layer)
+layer = Dropout(0.5)(layer)
+layer = BatchNormalization()(layer)
 layer = Dense(128, activation="sigmoid", name="FC1")(layer)
-# layer = Dropout(0.1)(layer)
-layer = Dense(64, activation='sigmoid', name='FC2')(layer)
+layer = Dropout(0.5)(layer)
+layer = BatchNormalization()(layer)
+# layer = Dense(64, activation='sigmoid', name='FC2')(layer)
 layer = Dense(10, activation="softmax", name="FC3")(layer)
 model = Model(inputs=inputs, outputs=layer)
-model.compile(loss="categorical_crossentropy", optimizer=RMSprop(), metrics=["accuracy"])
-model_fit = model.fit(train_seq_mat, train_y, batch_size=128, epochs=10,
+model.compile(loss="categorical_crossentropy", optimizer=Adam(), metrics=["accuracy"])
+model_fit = model.fit(train_seq_mat, train_y, batch_size=128, epochs=3,
                       validation_data=(val_seq_mat, val_y),
                       # callbacks=[EarlyStopping(monitor='val_loss',min_delta=0.0001)] ## 當val-loss不再提升時停止訓練
                      )
@@ -114,3 +119,4 @@ test_pre = model.predict(test_seq_mat)
 test_ans = pd.concat([test_all['id'], pd.DataFrame(np.argmax(test_pre, axis=1))], axis=1)
 test_ans.columns = ['id', 'label']
 test_ans.to_csv('./answer6.csv', index=False)
+
