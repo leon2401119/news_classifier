@@ -15,7 +15,7 @@ from keras.preprocessing import sequence
 from keras.callbacks import EarlyStopping
 import jieba
 
-print(device_lib.list_local_devices())
+# print(device_lib.list_local_devices())
 # K.tensorflow_backend._get_available_gpus()
 
 '''
@@ -64,9 +64,9 @@ val_y = ohe.transform(val_y).toarray()
 ## 使用Tokenizer對詞組進行編碼
 ## 當我們建立一個Tokenizer對象後，使用該對象的fit_on_texts()函数，以空格去便是每個詞,
 ## 可以將輸入的文本中的每個詞編號，編號是根據詞頻的，詞頻越大，編號越小。
-max_words = 1000000
-max_len = 20
-tok = Tokenizer(num_words=max_words, filters=u'，？：“”《》（ ）！', lower=False, split=u' ')  ## 使用的最大詞語數为20000
+max_words = 50000
+max_len = 30
+tok = Tokenizer(num_words=max_words, filters=u'…，？：“”《》（ ）！「」-—吗你他了我啦她啊么却而', lower=False, split=u' ')  ## 使用的最大詞語數为20000
 tok.fit_on_texts(train_df.seg_word)
 ## 使用word_index屬性可以看到每個詞對應的編碼
 ## 使用word_counts屬性可以看到每個詞對應的頻數
@@ -96,20 +96,22 @@ test_seq_mat = sequence.pad_sequences(test_seq, maxlen=max_len)
 ## LSTM模型
 inputs = Input(name='inputs', shape=[max_len])
 ## Embedding(詞彙表大小,batch大小,每個新聞的詞長)
-layer = Embedding(max_words+1, 500, input_length=max_len)(inputs)
+layer = Embedding(max_words+1, 200, input_length=max_len)(inputs)
 layer = Dropout(0.5)(layer)
 layer = BatchNormalization()(layer)
-layer = Bidirectional(LSTM(192))(layer)
+layer = Bidirectional(LSTM(256,kernel_regularizer="l2",recurrent_regularizer="l2"))(layer)
 layer = Dropout(0.5)(layer)
 layer = BatchNormalization()(layer)
-layer = Dense(128, activation="sigmoid", name="FC1")(layer)
+layer = Dense(128, activation="relu", name="FC1")(layer)
 layer = Dropout(0.5)(layer)
 layer = BatchNormalization()(layer)
-# layer = Dense(64, activation='sigmoid', name='FC2')(layer)
+# layer = Dense(64, activation='relu', name='FC2')(layer)
+# layer = Dropout(0.5)(layer)
+# layer = BatchNormalization()(layer)
 layer = Dense(10, activation="softmax", name="FC3")(layer)
 model = Model(inputs=inputs, outputs=layer)
-model.compile(loss="categorical_crossentropy", optimizer=Adam(), metrics=["accuracy"])
-model_fit = model.fit(train_seq_mat, train_y, batch_size=128, epochs=3,
+model.compile(loss="categorical_crossentropy", optimizer=Adam(learning_rate=0.0003), metrics=["accuracy"])
+model_fit = model.fit(train_seq_mat, train_y, batch_size=128, epochs=10,
                       validation_data=(val_seq_mat, val_y),
                       # callbacks=[EarlyStopping(monitor='val_loss',min_delta=0.0001)] ## 當val-loss不再提升時停止訓練
                      )
